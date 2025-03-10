@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
+    import { goto } from '$app/navigation';
     import { 
         Rocket, 
         Package,
@@ -9,13 +11,24 @@
         Plus,
         Bell
     } from "lucide-svelte";
+    import {auth, logout} from '$lib/auth';
+
+    onMount(() => {
+        // Redireciona se não estiver autenticado
+        const token = localStorage.getItem('access_token');
+        console.log(token);
+        if (!token) {
+          goto('/signin');
+        }
+    });
 </script>
-  
+
 <svelte:head>
     <title>LHub - Painel Administrativo</title>
 </svelte:head>
-  
-<div class="min-h-screen bg-gray-50">
+
+{#if auth}
+  <div class="min-h-screen bg-gray-50">
     <!-- Sidebar + Main Content -->
     <div class="flex">
       <!-- Sidebar -->
@@ -50,7 +63,7 @@
           </nav>
         </div>
       </aside>
-  
+
       <!-- Main Content -->
       <main class="flex-1">
         <!-- Header -->
@@ -65,7 +78,7 @@
             </div>
           </div>
         </header>
-  
+
         <!-- Stats -->
         <div class="p-6">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -81,7 +94,7 @@
                 </div>
               </div>
             </div>
-  
+
             <!-- Total Orders -->
             <div class="bg-white p-6 rounded-xl shadow-sm">
               <div class="flex justify-between items-center">
@@ -94,7 +107,7 @@
                 </div>
               </div>
             </div>
-  
+
             <!-- Total Products -->
             <div class="bg-white p-6 rounded-xl shadow-sm">
               <div class="flex justify-between items-center">
@@ -109,7 +122,7 @@
             </div>
           </div>
         </div>
-  
+
         <!-- Charts and Recent Orders -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
           <!-- Sales Chart -->
@@ -122,7 +135,7 @@
               </div>
             </div>
           </div>
-  
+
           <!-- Recent Orders -->
           <div class="bg-white p-6 rounded-xl shadow-sm">
             <div class="flex justify-between items-center mb-4">
@@ -154,7 +167,7 @@
             </div>
           </div>
         </div>
-  
+
         <!-- Quick Actions -->
         <div class="p-6">
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -178,4 +191,11 @@
         </div>
       </main>
     </div>
-</div>
+  </div>
+{:else}
+    <!-- Redirecionando... -->
+    <div class="text-center py-8">
+        <p>Verificando autenticação...</p>
+    </div>
+{/if}
+  

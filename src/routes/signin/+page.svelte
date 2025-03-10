@@ -1,5 +1,66 @@
 <script lang="ts">
-    import { Rocket, LogIn, Github, Key } from "lucide-svelte";
+  import { Rocket, LogIn, Github, Key } from "lucide-svelte";
+  import { toast } from '@zerodevx/svelte-toast';
+  import { goto } from '$app/navigation';
+
+  // Variáveis reativas
+  let email = '';
+  let password = '';
+  let isLoading = false;
+
+  async function handleSubmit(event: Event) {
+      event.preventDefault();
+      isLoading = true;
+
+      try {
+          // 1. Validar campos
+          if (!email || !password) {
+              throw new Error('Preencha todos os campos');
+          }
+
+          // 2. Criar payload
+          const formData = new URLSearchParams();
+          formData.append('username', email);
+          formData.append('password', password);
+          formData.append('grant_type', 'password');
+          formData.append('client_id', 'seu-client-id'); // Altere para seus valores reais
+          formData.append('client_secret', 'seu-client-secret');
+
+          // 3. Fazer requisição
+          const response = await fetch('http://127.0.0.1:8000/api/auth/token', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                  'Accept': 'application/json'
+              },
+              body: formData
+          });
+
+          // 4. Tratar resposta
+          if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.detail || 'Erro na autenticação');
+          }
+
+          const data = await response.json();
+          
+          // 5. Armazenar token e redirecionar
+          localStorage.setItem('access_token', data.access_token);
+          await goto('/home');
+
+          toast.push('Login realizado com sucesso!', {
+              theme: { '--toastBackground': '#4CAF50', '--toastColor': 'white' }
+          });
+
+      } catch (error) {
+          toast.push(error.message, {
+              theme: { '--toastBackground': '#EF5350', '--toastColor': 'white' }
+          });
+          console.error('Erro no login:', error);
+      } finally {
+          isLoading = false;
+      }
+  }
 </script>
   
 <svelte:head>
@@ -34,41 +95,50 @@
         </p>
       </div>
   
-      <form class="space-y-6">
+      <form class="space-y-6" on:submit={handleSubmit}>
         <div>
           <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
-            E-mail
+              E-mail
           </label>
           <input
-            type="email"
-            id="email"
-            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="seu@email.com"
+              type="email"
+              id="email"
+              bind:value={email}
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="seu@email.com"
+              required
           />
         </div>
   
         <div>
           <div class="flex justify-between items-center mb-2">
-            <label for="password" class="block text-sm font-medium text-gray-700">
-              Senha
-            </label>
-            <a href="#" class="text-sm text-blue-600 hover:text-blue-700">
-              Esqueceu a senha?
-            </a>
+              <label for="password" class="block text-sm font-medium text-gray-700">
+                  Senha
+              </label>
+              <a href="/" class="text-sm text-blue-600 hover:text-blue-700">
+                  Esqueceu a senha?
+              </a>
           </div>
           <input
-            type="password"
-            id="password"
-            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="••••••••"
+              type="password"
+              id="password"
+              bind:value={password}
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="••••••••"
+              required
           />
         </div>
   
         <button
           type="submit"
-          class="w-full py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          class="w-full py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+          disabled={isLoading}
         >
-          Entrar na conta
+          {#if isLoading}
+              <span class="animate-pulse">Processando...</span>
+          {:else}
+              Entrar na conta
+          {/if}
         </button>
   
         <div class="relative mt-8">
