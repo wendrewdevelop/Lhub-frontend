@@ -23,10 +23,10 @@
           formData.append('username', email);
           formData.append('password', password);
           formData.append('grant_type', 'password');
-          formData.append('client_id', 'seu-client-id'); // Altere para seus valores reais
+          formData.append('client_id', 'seu-client-id');
           formData.append('client_secret', 'seu-client-secret');
 
-          // 3. Fazer requisição
+          // 3. Fazer requisição de login
           const response = await fetch('http://127.0.0.1:8000/api/auth/token', {
               method: 'POST',
               headers: {
@@ -36,17 +36,36 @@
               body: formData
           });
 
-          // 4. Tratar resposta
           if (!response.ok) {
               const errorData = await response.json();
               throw new Error(errorData.detail || 'Erro na autenticação');
           }
 
           const data = await response.json();
-          
-          // 5. Armazenar token e redirecionar
+          // 4. Armazenar dados do usuário
           localStorage.setItem('access_token', data.access_token);
-          await goto('/home');
+          localStorage.setItem('account_id', data.user[0].id);
+          localStorage.setItem('email', data.user[0].email);
+
+          // 5. Verificar se tem store vinculada
+          const storeResponse = await fetch('http://127.0.0.1:8000/api/accounts/me/store', {
+              headers: {
+                  'Authorization': `Bearer ${data.access_token}`
+              }
+          });
+
+          if (!storeResponse.ok) {
+              throw new Error('Erro ao verificar loja vinculada');
+          }
+
+          const storeData = await storeResponse.json();
+
+          // 6. Redirecionar conforme existência da store
+          if (storeData.has_store) {
+              await goto('/home');
+          } else {
+              await goto('/create-store');
+          }
 
           toast.push('Login realizado com sucesso!', {
               theme: { '--toastBackground': '#4CAF50', '--toastColor': 'white' }

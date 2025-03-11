@@ -1,26 +1,25 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
-    import { goto } from '$app/navigation';
-    import { 
-        Rocket, 
-        Package,
-        ShoppingCart,
-        Users,
-        Settings,
-        ChartLine,
-        Plus,
-        Bell
-    } from "lucide-svelte";
-    import {auth, logout} from '$lib/auth';
+  import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+  import {auth, logout} from '$lib/auth';
 
-    onMount(() => {
-        // Redireciona se não estiver autenticado
-        const token = localStorage.getItem('access_token');
-        console.log(token);
-        if (!token) {
-          goto('/signin');
-        }
-    });
+  onMount(async () => {
+    // Dupla verificação (client-side)
+    const token = localStorage.getItem('access_token');
+    if (!token) goto('/signin');
+
+    try {
+      const response = await fetch('/api/accounts/me/store', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const { has_store } = await response.json();
+      if (!has_store) goto('/create-store');
+
+    } catch (error) {
+      goto('/signin');
+    }
+  });
 </script>
 
 <svelte:head>
