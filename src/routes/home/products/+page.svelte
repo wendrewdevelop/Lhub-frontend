@@ -24,6 +24,24 @@
     ready_delivery: false
   };
 
+  onMount(async () => {
+    // Dupla verificação (client-side)
+    const token = localStorage.getItem('access_token');
+    if (!token) goto('/signin');
+
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/accounts/me/store', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const { has_store } = await response.json();
+      if (!has_store) goto('/create-store');
+
+    } catch (error) {
+      goto('/signin');
+    }
+  });
+
   async function fetchProducts() {
     const token = localStorage.getItem('access_token');
     const account_id = localStorage.getItem('account_id');

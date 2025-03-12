@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import {auth, logout} from '$lib/auth';
+  import { auth, logout } from '$lib/auth';
   import { 
       Rocket,
       Package,
@@ -14,22 +14,32 @@
       MapPin,
       Truck,
       Image,
-      Save
+      Save,
+      StoreIcon
   } from "lucide-svelte";
+
+  let storeId: string | null = null;
 
   onMount(async () => {
     // Dupla verificação (client-side)
     const token = localStorage.getItem('access_token');
-    if (!token) goto('/signin');
+    if (!token) {
+      goto('/signin');
+      return;
+    }
 
     try {
       const response = await fetch('http://127.0.0.1:8000/api/accounts/me/store', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
-      const { has_store } = await response.json();
-      if (!has_store) goto('/create-store');
-
+      const { has_store, store_id } = await response.json();
+      if (!has_store) {
+        goto('/create-store');
+      } else {
+        storeId = store_id;
+        localStorage.setItem("store_id", storeId);
+      }
     } catch (error) {
       goto('/signin');
     }
@@ -84,6 +94,12 @@
           <div class="flex justify-between items-center px-6 py-4">
             <h1 class="text-xl font-semibold text-gray-900">Dashboard</h1>
             <div class="flex items-center space-x-4">
+              <h3>
+                <a href="/store/{storeId}" class="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg border" target="_blank">
+                  <StoreIcon class="w-5 h-5 mr-2" />
+                  Sua loja
+                </a>
+              </h3>
               <button class="p-2 text-gray-600 hover:bg-gray-50 rounded-full">
                 <Bell class="w-5 h-5" />
               </button>
