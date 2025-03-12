@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Rocket, LogIn, Github, Key } from "lucide-svelte";
   import { toast } from '@zerodevx/svelte-toast';
-  import { goto } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
 
   // Variáveis reativas
   let email = '';
@@ -42,7 +42,6 @@
           }
 
           const data = await response.json();
-          // 4. Armazenar dados do usuário
           localStorage.setItem('access_token', data.access_token);
           localStorage.setItem('account_id', data.user[0].id);
           localStorage.setItem('email', data.user[0].email);
@@ -54,17 +53,20 @@
               }
           });
 
-          if (!storeResponse.ok) {
-              throw new Error('Erro ao verificar loja vinculada');
-          }
+          // if (!storeResponse.ok) {
+          //     throw new Error('Erro ao verificar loja vinculada');
+          // }
 
           const storeData = await storeResponse.json();
+          console.log('STORE VERIFICATION: ', storeData);
 
           // 6. Redirecionar conforme existência da store
           if (storeData.has_store) {
-              await goto('/home');
+            await invalidateAll();
+            await new Promise(resolve => setTimeout(resolve, 50));
+            await goto('/home', { replaceState: true, noScroll: true });
           } else {
-              await goto('/create-store');
+            await goto('/create-store', { replaceState: true, noScroll: true });
           }
 
           toast.push('Login realizado com sucesso!', {

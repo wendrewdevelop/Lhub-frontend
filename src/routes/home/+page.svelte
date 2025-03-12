@@ -2,6 +2,20 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import {auth, logout} from '$lib/auth';
+  import { 
+      Rocket,
+      Package,
+      ShoppingCart,
+      Users,
+      Settings,
+      ChartLine,
+      Plus,
+      Bell,
+      MapPin,
+      Truck,
+      Image,
+      Save
+  } from "lucide-svelte";
 
   onMount(async () => {
     // Dupla verificação (client-side)
@@ -9,7 +23,7 @@
     if (!token) goto('/signin');
 
     try {
-      const response = await fetch('/api/accounts/me/store', {
+      const response = await fetch('http://127.0.0.1:8000/api/accounts/me/store', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -47,7 +61,7 @@
               <ShoppingCart class="w-5 h-5" />
               <span>Pedidos</span>
             </a>
-            <a href="#" class="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
+            <a href="/home/products" class="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
               <Package class="w-5 h-5" />
               <span>Produtos</span>
             </a>

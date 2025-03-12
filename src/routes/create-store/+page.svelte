@@ -21,10 +21,20 @@
     let storeName = '';
     let cep = '';
     let deliveryFee = 0;
-    let logoFile: File | null = null;
     let address = '';  // This is correctly referenced in storeData
     let description = '';
     let isLoading = false;
+
+    console.log('Token:', localStorage.getItem('access_token'))
+
+
+    console.log('Dados do formulário:', {
+        storeName,
+        address,
+        cep,
+        deliveryFee,
+        description
+    })
 
     onMount(() => {
         const token = localStorage.getItem('access_token');
@@ -85,9 +95,6 @@
             }, 1500);
 
         } catch (error) {
-            // toast.push(`❌ ${error.message}`, {
-            //     classes: 'bg-red-500 text-white'
-            // });
             console.error('Erro ao criar loja:', error);
         } finally {
             isLoading = false;
