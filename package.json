@@ -30,7 +30,11 @@
 		"vite": "^6.0.0"
 	},
 	"dependencies": {
+		"@heroicons/vue": "^2.2.0",
+		"@stripe/stripe-js": "^6.0.0",
+		"@supabase/supabase-js": "^2.49.1",
 		"@zerodevx/svelte-toast": "^0.9.6",
-		"lucide-svelte": "^0.476.0"
+		"lucide-svelte": "^0.476.0",
+		"uuid": "^11.1.0"
 	}
 }

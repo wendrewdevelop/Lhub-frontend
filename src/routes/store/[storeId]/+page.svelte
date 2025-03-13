@@ -2,9 +2,10 @@
     import { writable, derived } from 'svelte/store';
     import { onMount } from 'svelte';
     import { browser } from '$app/environment';
-    import { page } from '$app/stores';
-    import { invalidate } from '$app/navigation';
+    import { page } from '$app/state';
+    import { invalidate, goto } from '$app/navigation';
     import { slide, fade } from 'svelte/transition';
+    import { v4 as uuidv4 } from "uuid";
 
 
     export let data; // Recebe os dados do servidor
@@ -36,7 +37,6 @@
             currency: 'BRL'
         }).format(valor);
     };
-
     const addToCart = (item) => {
         cart.update(prev => {
             const existing = prev.items.find(i => i.id === item.id);
@@ -48,7 +48,6 @@
             return calculateTotals(prev);
         });
     };
-
     const calculateTotals = (state) => {
         state.subtotal = state.items.reduce((sum, item) => sum + (item.preco * item.quantity), 0);
         state.total = state.subtotal + state.taxa;
@@ -66,7 +65,6 @@
             return calculateTotals(prev);
         });
     };
-
     const removeItem = (itemId) => {
         cart.update(prev => {
             prev.items = prev.items.filter(i => i.id !== itemId);
@@ -110,12 +108,8 @@
                     console.log('Erro ao obter o store_id da URL.');
                 }
                 
-
-                const token = localStorage.getItem('token');
                 const response = await fetch(
-                    `http://127.0.0.1:8000/api/products?store_id=${store_id}`,
-                    { headers: { Authorization: `Bearer ${token}` } }
-                );
+                    `http://127.0.0.1:8000/api/products?store_id=${store_id}`);
 
                 if (!response.ok) throw new Error('Falha ao carregar produtos');
                 
@@ -145,9 +139,16 @@
 
     onMount(async () => {
         await loadProducts();
-        // Recarrega a página se o UUID mudar
+        // iniciarCheckout();
         invalidate('load:products');
     });
+
+    const iniciarCheckout = () => {
+        const regex = /[0-9a-fA-F-]{36}/;
+        const store_id = window.location.pathname.match(regex);
+        const checkout_id = uuidv4(); // Gera UUID único
+        goto(`/checkout/${store_id}/${checkout_id}`);
+    };
 </script>
 
 <svelte:head>
@@ -424,9 +425,10 @@
                         </div>
                         
                         <button 
-                            class="w-full bg-cyan-900 text-white py-3 rounded-lg hover:bg-cyan-800 transition-colors"
+                        on:click={iniciarCheckout}
+                        class="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700"
                         >
-                            Finalizar Experimento
+                        Finalizar Compra
                         </button>
                     </div>
                 </div>
@@ -437,27 +439,27 @@
 
 <style>
     /* Adicionar no global.css */
-:root {
-    --color-cyan-900: #083344;
-    --color-cyan-800: #155e75;
-    --color-amber-400: #fbbf24;
-}
+    :root {
+        --color-cyan-900: #083344;
+        --color-cyan-800: #155e75;
+        --color-amber-400: #fbbf24;
+    }
 
-.detail-modal {
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-cyan-800) var(--color-cyan-100);
-}
+    .detail-modal {
+        scrollbar-width: thin;
+        scrollbar-color: var(--color-cyan-800) var(--color-cyan-100);
+    }
 
-.detail-modal::-webkit-scrollbar {
-    width: 8px;
-}
+    .detail-modal::-webkit-scrollbar {
+        width: 8px;
+    }
 
-.detail-modal::-webkit-scrollbar-track {
-    background: var(--color-cyan-100);
-}
+    .detail-modal::-webkit-scrollbar-track {
+        background: var(--color-cyan-100);
+    }
 
-.detail-modal::-webkit-scrollbar-thumb {
-    background-color: var(--color-cyan-800);
-    border-radius: 4px;
-}
+    .detail-modal::-webkit-scrollbar-thumb {
+        background-color: var(--color-cyan-800);
+        border-radius: 4px;
+    }
 </style>
