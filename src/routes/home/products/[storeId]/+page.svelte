@@ -23,6 +23,7 @@
     qtd_in_stock: 1,
     ready_delivery: false
   };
+  let storeId: string | null = null;
 
   onMount(async () => {
     // Dupla verificação (client-side)
@@ -34,9 +35,13 @@
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
-      const { has_store } = await response.json();
-      if (!has_store) goto('/create-store');
-
+      const { has_store, store_id } = await response.json();
+      if (!has_store) {
+        goto('/create-store');
+      } else {
+        storeId = store_id;
+        localStorage.setItem("store_id", storeId);
+      }
     } catch (error) {
       goto('/signin');
     }
@@ -113,11 +118,11 @@
               <ChartLine class="w-5 h-5" />
               <span>Dashboard</span>
             </a>
-            <a href="#" class="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
+            <a href="/home/orders/{storeId}" class="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
               <ShoppingCart class="w-5 h-5" />
               <span>Pedidos</span>
             </a>
-            <a href="/home/products" class="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
+            <a href="/home/products/{storeId}" class="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
               <Package class="w-5 h-5" />
               <span>Produtos</span>
             </a>
