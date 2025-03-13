@@ -9,7 +9,8 @@
       Users,
       Settings,
       ChartLine,
-      Bell
+      Bell,
+      StoreIcon
   } from "lucide-svelte";
   let storeId: string | null = null;
   let orders = [];
@@ -36,6 +37,11 @@
     }
   });
 
+  const formatDate = (dateString) => {
+    const options = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' };
+    return new Date(dateString).toLocaleDateString('pt-BR', options);
+  };
+
   async function fetchOrders() {
     const token = localStorage.getItem('access_token');
     try {
@@ -44,8 +50,18 @@
       });
       
       if (res.ok) {
-        orders = await res.json();
-        console.log(orders);
+        const data = await res.json();
+        orders = data.map(order => ({
+          id: order.id,
+          total: order.total_amount,
+          status: order.status,
+          created_at: formatDate(order.created_at),
+          payment_status: order.payment_info?.status || 'Não informado',
+          customer: order.shipping_address?.full_name || 'Cliente não identificado',
+          shipping_address: order.shipping_address,
+          payment_info: order.payment_info,
+          status_history: order.status_history
+        }));
       } else {
         console.error('Falha ao carregar pedidos');
       }
@@ -74,11 +90,11 @@
               <ChartLine class="w-5 h-5" />
               <span>Dashboard</span>
             </a>
-            <a href="#" class="flex items-center space-x-3 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg">
+            <a href="/home/orders/{storeId}" class="flex items-center space-x-3 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg">
               <ShoppingCart class="w-5 h-5" />
               <span>Pedidos</span>
             </a>
-            <a href="/home/products" class="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
+            <a href="/home/products/{storeId}" class="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
               <Package class="w-5 h-5" />
               <span>Produtos</span>
             </a>
@@ -99,6 +115,12 @@
           <div class="flex justify-between items-center px-6 py-4">
             <h1 class="text-xl font-semibold text-gray-900">Listagem de Pedidos</h1>
             <div class="flex items-center space-x-4">
+              <h3>
+                <a href="/store/{storeId}" class="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg border" target="_blank">
+                  <StoreIcon class="w-5 h-5 mr-2" />
+                  Sua loja
+                </a>
+              </h3>
               <button class="p-2 text-gray-600 hover:bg-gray-50 rounded-full">
                 <Bell class="w-5 h-5" />
               </button>
@@ -128,19 +150,25 @@
                   <tbody class="bg-white divide-y divide-gray-200">
                     {#each orders as order}
                       <tr>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{order.id}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.customer_name}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.date}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">R$ {order.total}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{order.id.slice(0,8)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.customer}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.created_at}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">R$ {order.total.toFixed(2)}</td>
                         <td class="px-6 py-4 whitespace-nowrap">
                           <span class="px-3 py-1 inline-flex text-xs font-medium rounded-full 
-                            {order.status === 'Entregue' ? 'bg-green-100 text-green-800' 
-                            : order.status === 'Pendente' ? 'bg-yellow-100 text-yellow-800' 
-                            : 'bg-gray-100 text-gray-800'}">
-                            {order.status}
+                            {order.status === 'DELIVERED' ? 'bg-green-100 text-green-800' 
+                             : order.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800'
+                             : 'bg-gray-100 text-gray-800'}">
+                            {order.status === 'PENDING' ? 'Pendente' 
+                             : order.status === 'DELIVERED' ? 'Entregue'
+                             : order.status}
                           </span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.payment_status}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {order.payment_status === 'approved' ? 'Aprovado' 
+                           : order.payment_status === 'pending' ? 'Pendente'
+                           : order.payment_status}
+                        </td>
                       </tr>
                     {/each}
                   </tbody>

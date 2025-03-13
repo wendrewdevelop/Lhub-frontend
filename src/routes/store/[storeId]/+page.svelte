@@ -2,14 +2,17 @@
     import { writable, derived } from 'svelte/store';
     import { onMount } from 'svelte';
     import { browser } from '$app/environment';
+    import { page } from '$app/stores';
+    import { invalidate } from '$app/navigation';
+    import { slide, fade } from 'svelte/transition';
 
-    export let data;
-    
+
+    export let data; // Recebe os dados do servidor
+    let uuid = "";
     // Estado inicial
     let loading = true;
     let error = null;
     let storeExists = true;
-
     // Stores
     const produtos = writable([]);
     export const selectedProduct = writable(null);
@@ -27,6 +30,12 @@
         total: 0,
         open: false
     });
+    const formatarMoeda = (valor) => {
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        }).format(valor);
+    };
 
     const addToCart = (item) => {
         cart.update(prev => {
@@ -45,6 +54,30 @@
         state.total = state.subtotal + state.taxa;
         return state;
     };
+    const updateQuantity = (itemId, delta) => {
+        cart.update(prev => {
+            const item = prev.items.find(i => i.id === itemId);
+            if (item) {
+                item.quantity += delta;
+                if (item.quantity < 1) {
+                    prev.items = prev.items.filter(i => i.id !== itemId);
+                }
+            }
+            return calculateTotals(prev);
+        });
+    };
+
+    const removeItem = (itemId) => {
+        cart.update(prev => {
+            prev.items = prev.items.filter(i => i.id !== itemId);
+            return calculateTotals(prev);
+        });
+    };
+
+    // Atualize a função calculateTotals para ser reativa
+    cart.subscribe(state => {
+        calculateTotals(state);
+    });
 
     // Store derivada para filtragem
     const produtosFiltrados = derived(
@@ -67,52 +100,56 @@
         }
     );
 
-    const loadStoreAndProducts = async () => {
-        // Garante execução apenas no cliente
+    const loadProducts = async () => {
         if (browser) {
             try {
-                const token = localStorage.getItem('token');
+                if (!browser) return;
+                const regex = /[0-9a-fA-F-]{36}/;
+                const store_id = window.location.pathname.match(regex);
+                if (!store_id) {
+                    console.log('Erro ao obter o store_id da URL.');
+                }
                 
-                // Verificação da loja
-                // const storeResponse = await fetch(`http://127.0.0.1:8000/api/stores/${data.store_id}`, {
-                //     headers: { 'Authorization': `Bearer ${token}` }
-                // });
 
-                // if (!storeResponse.ok) {
-                //     storeExists = false;
-                //     throw new Error('Loja não encontrada');
-                // }
-
-                // Busca de produtos
-                const productsResponse = await fetch(
-                    `http://127.0.0.1:8000/api/products?store_id=${data.store_id}`,
-                    { headers: { 'Authorization': `Bearer ${token}` } }
+                const token = localStorage.getItem('token');
+                const response = await fetch(
+                    `http://127.0.0.1:8000/api/products?store_id=${store_id}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
                 );
 
-                const productsData = await productsResponse.json();
+                if (!response.ok) throw new Error('Falha ao carregar produtos');
                 
+                const products = await response.json();
+                
+                const productsData = Array.isArray(products) ? products : [];
+
                 produtos.set(productsData.map(item => ({
                     id: item.id,
-                    nome: item.name,
-                    preco: item.price,
-                    descricao: item.description,
-                    detalhes: item.details,
-                    imagem: item.image_url,
-                    categoria: item.category,
-                    tempo: item.preparation_time,
-                    ingredientes: item.tags
+                    nome: item.name || 'Sem nome',
+                    preco: item.price ? Number(item.price) : 0,
+                    descricao: item.description || 'Sem descrição',
+                    detalhes: item.details || '',
+                    categoria: item.category || 'sem-categoria',
+                    tempo: item.preparation_time || 'N/A',
+                    ingredientes: Array.isArray(item.tags) ? item.tags : []
                 })));
 
             } catch (err) {
                 error = err.message;
+                produtos.set([]);
             } finally {
                 loading = false;
             }
         }
     };
 
-    onMount(loadStoreAndProducts);
+    onMount(async () => {
+        await loadProducts();
+        // Recarrega a página se o UUID mudar
+        invalidate('load:products');
+    });
 </script>
+
 <svelte:head>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </svelte:head>
@@ -212,8 +249,28 @@
         {:else}
             <!-- Seu grid de produtos aqui -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {#each produtosFiltrados as produto}
-                    <!-- Seu template de produto -->
+                {#each $produtosFiltrados as produto}
+                    <div class="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
+                        <img 
+                            src={produto.imagem} 
+                            alt={produto.nome}
+                            class="w-full h-48 object-cover rounded-lg mb-4"
+                        />
+                        <h3 class="text-lg font-semibold text-cyan-900 mb-2">{produto.nome}</h3>
+                        <p class="text-zinc-600 text-sm mb-4">{produto.descricao}</p>
+                        
+                        <div class="flex justify-between items-center">
+                            <span class="text-lg font-bold text-cyan-900">
+                                {formatarMoeda(produto.preco)}
+                            </span>
+                            <button 
+                                on:click={() => addToCart(produto)}
+                                class="bg-cyan-900 text-white px-4 py-2 rounded-lg hover:bg-cyan-800"
+                            >
+                                <i class="fas fa-cart-plus"></i>
+                            </button>
+                        </div>
+                    </div>
                 {/each}
             </div>
         {/if}
@@ -286,6 +343,96 @@
     {/if}
 
     <!-- Carrinho Lateral (mantido do anterior) -->
+    {#if $cart.open}
+        <!-- Carrinho Lateral -->
+        <div 
+            transition:fade
+            class="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm"
+            on:click|self={() => $cart.open = false}
+        >
+            <div 
+                transition:slide={{ duration: 300, direction: 'right', x: 1000 }}
+                class="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-xl"
+            >
+                <div class="p-6 h-full flex flex-col">
+                    <!-- Cabeçalho -->
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-semibold">Seu Carrinho</h3>
+                        <button 
+                            on:click={() => $cart.open = false}
+                            class="p-2 hover:bg-gray-100 rounded-lg"
+                        >
+                            <i class="fas fa-times text-lg"></i>
+                        </button>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto space-y-4">
+                        {#each $cart.items as item (item.id)}
+                            <div class="flex gap-4 border-b pb-4">
+                                <img 
+                                    src={item.imagem} 
+                                    alt={item.nome} 
+                                    class="w-20 h-20 object-cover rounded-lg"
+                                />
+                                <div class="flex-1">
+                                    <h4 class="font-medium">{item.nome}</h4>
+                                    <div class="flex items-center gap-2 mt-2">
+                                        <button 
+                                            on:click={() => updateQuantity(item.id, -1)}
+                                            class="px-2 py-1 bg-gray-100 rounded"
+                                        >
+                                            -
+                                        </button>
+                                        <span>{item.quantity}</span>
+                                        <button 
+                                            on:click={() => updateQuantity(item.id, 1)}
+                                            class="px-2 py-1 bg-gray-100 rounded"
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <p class="font-medium">{formatarMoeda(item.preco * item.quantity)}</p>
+                                    <button 
+                                        on:click={() => removeItem(item.id)}
+                                        class="text-red-500 text-sm mt-1 hover:text-red-700"
+                                    >
+                                        Remover
+                                    </button>
+                                </div>
+                            </div>
+                        {:else}
+                            <p class="text-gray-500 text-center py-8">Carrinho vazio</p>
+                        {/each}
+                    </div>
+
+                    <div class="border-t pt-4">
+                        <div class="space-y-2 mb-6">
+                            <div class="flex justify-between">
+                                <span>Subtotal:</span>
+                                <span>{formatarMoeda($cart.subtotal)}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Taxa:</span>
+                                <span>{formatarMoeda($cart.taxa)}</span>
+                            </div>
+                            <div class="flex justify-between font-bold">
+                                <span>Total:</span>
+                                <span>{formatarMoeda($cart.total)}</span>
+                            </div>
+                        </div>
+                        
+                        <button 
+                            class="w-full bg-cyan-900 text-white py-3 rounded-lg hover:bg-cyan-800 transition-colors"
+                        >
+                            Finalizar Experimento
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {/if}
 </div>
 
 <style>

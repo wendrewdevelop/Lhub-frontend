@@ -11,7 +11,8 @@
       ChartLine,
       Plus,
       Bell,
-      Save
+      Save,
+      StoreIcon
   } from "lucide-svelte";
 
   let products = [];
@@ -145,6 +146,12 @@
           <div class="flex justify-between items-center px-6 py-4">
             <h1 class="text-xl font-semibold text-gray-900">Cadastro e Listagem de Produtos</h1>
             <div class="flex items-center space-x-4">
+              <h3>
+                <a href="/store/{storeId}" class="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg border" target="_blank">
+                  <StoreIcon class="w-5 h-5 mr-2" />
+                  Sua loja
+                </a>
+              </h3>
               <button class="p-2 text-gray-600 hover:bg-gray-50 rounded-full">
                 <Bell class="w-5 h-5" />
               </button>

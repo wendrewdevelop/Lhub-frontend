@@ -42,3 +42,4 @@ You can preview the production build with `npm run preview`.
 
 - [ ] Enable store owner set primary and secondary page color;
 - [ ] Improve session expired;
+- [ ] Add store_id data to send to API (front -> backend);
