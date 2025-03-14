@@ -115,7 +115,7 @@
           </div>
           
           <nav class="space-y-2">
-            <a href="#" class="flex items-center space-x-3 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg">
+            <a href="/home" class="flex items-center space-x-3 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg">
               <ChartLine class="w-5 h-5" />
               <span>Dashboard</span>
             </a>

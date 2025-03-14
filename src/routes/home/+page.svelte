@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { auth, logout } from '$lib/auth';
   import { 
@@ -17,8 +17,112 @@
       Save,
       StoreIcon
   } from "lucide-svelte";
+  import { page } from '$app/state';
+	import { writable } from 'svelte/store';
 
   let storeId: string | null = null;
+  const orders = writable([]);
+  let loadingOrders = false;
+  let ordersError = null;
+  let selectedOrder: any = null;
+  let newStatus = '';
+  let statusNotes = '';
+  let updatingStatus = false;
+  let statusError = '';
+  let statusHistory = [];
+
+  const openOrderDetails = async (order: any) => {
+    selectedOrder = order;
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/orders/${order.id}/status`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        }
+      });
+      
+      if (!response.ok) throw new Error('Falha ao carregar detalhes');
+      
+      const data = await response.json();
+      newStatus = data.current_status;
+      statusHistory = data.history || []; // Garante array vazio se não houver histórico
+    } catch (err) {
+      statusError = err.message;
+    }
+  };
+
+  const updateOrderStatus = async () => {
+    try {
+      updatingStatus = true;
+      statusError = '';
+      
+      const response = await fetch(`http://127.0.0.1:8000/api/orders/${selectedOrder.id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        },
+        body: JSON.stringify({
+          status: newStatus,
+          notes: statusNotes
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Falha na atualização');
+      }
+
+      // Atualiza a lista de pedidos
+      await loadOrders();
+      selectedOrder = null;
+    } catch (err) {
+      statusError = err.message;
+    } finally {
+      updatingStatus = false;
+    }
+  };
+
+  const formatarMoeda = (valor: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(valor);
+  };
+
+  const loadOrders = async () => {
+      try {
+          loadingOrders = true;
+          ordersError = null;
+          let store_id = localStorage.getItem("store_id");
+          
+          const response = await fetch(
+              `http://127.0.0.1:8000/api/orders/retrieve/new?store_id=${store_id}`
+          );
+
+          if (!response.ok) throw new Error('Falha ao carregar pedidos');
+          
+          const data = await response.json();
+          orders.set(data);
+          console.log(data);
+          
+      } catch (err) {
+          ordersError = err.message;
+      } finally {
+          loadingOrders = false;
+      }
+  };
+
+  const getStatusStyle = (status: string) => {
+    const styles = {
+      'RECEBIDO': 'bg-blue-100 text-blue-600',
+      'EM_PREPARO': 'bg-yellow-100 text-yellow-600',
+      'ENVIADO': 'bg-purple-100 text-purple-600',
+      'ENTREGUE': 'bg-green-100 text-green-600',
+      'CANCELADO': 'bg-red-100 text-red-600',
+      default: 'bg-gray-100 text-gray-600'
+    };
+    return styles[status] || styles.default;
+  };
 
   onMount(async () => {
     // Dupla verificação (client-side)
@@ -43,6 +147,13 @@
     } catch (error) {
       goto('/signin');
     }
+
+    let interval: NodeJS.Timeout;
+    await loadOrders();
+    interval = setInterval(() => loadOrders(), 30000);
+    onDestroy(() => {
+      if (interval) clearInterval(interval);
+    });
   });
 </script>
 
@@ -63,7 +174,7 @@
           </div>
           
           <nav class="space-y-2">
-            <a href="#" class="flex items-center space-x-3 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg">
+            <a href="/home" class="flex items-center space-x-3 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg">
               <ChartLine class="w-5 h-5" />
               <span>Dashboard</span>
             </a>
@@ -166,35 +277,46 @@
           </div>
 
           <!-- Recent Orders -->
-          <div class="bg-white p-6 rounded-xl shadow-sm">
-            <div class="flex justify-between items-center mb-4">
-              <h3 class="text-lg font-semibold">Pedidos Recentes</h3>
-              <a href="#" class="text-blue-600 text-sm hover:text-blue-700">Ver todos</a>
-            </div>
-            <div class="space-y-4">
-              <!-- Order Item -->
-              <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p class="font-medium">#3215 - João Silva</p>
-                  <p class="text-sm text-gray-600">2 produtos • R$ 152,00</p>
+          <div class="max-w-7xl mx-auto px-4 lg:px-8 py-8">
+            <div class="bg-white p-6 rounded-xl shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold">Pedidos Recentes</h3>
+                    <a href="/home/orders/{storeId}" class="text-blue-600 text-sm hover:text-blue-700">Ver todos</a>
                 </div>
-                <span class="px-2 py-1 bg-green-100 text-green-600 text-sm rounded-full">
-                  Entregue
-                </span>
-              </div>
-              
-              <!-- Order Item -->
-              <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p class="font-medium">#3214 - Maria Souza</p>
-                  <p class="text-sm text-gray-600">5 produtos • R$ 429,00</p>
-                </div>
-                <span class="px-2 py-1 bg-yellow-100 text-yellow-600 text-sm rounded-full">
-                  Processando
-                </span>
-              </div>
+                
+                {#if loadingOrders}
+                    <div class="text-center py-4">
+                        <i class="fas fa-spinner fa-spin"></i> Carregando pedidos...
+                    </div>
+                {:else if ordersError}
+                    <div class="text-red-500 p-4">
+                        {ordersError}
+                    </div>
+                {:else}
+                    <div class="space-y-4">
+                        {#each $orders as order}
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100"
+                            on:click={() => openOrderDetails(order)}>
+                                <div>
+                                    <p class="font-medium">#{order.id} - {order.shipping_address.street}, {order.shipping_address.number}</p>
+                                    <p class="text-sm text-gray-600">
+                                        {order.product_count} produtos • {formatarMoeda(order.total_amount)}
+                                    </p>
+                                </div>
+                                <span class="px-2 py-1 text-sm rounded-full {getStatusStyle(order.status)}">
+                                    {order.status}
+                                </span>
+                            </div>
+                        {:else}
+                            <div class="text-center py-4 text-gray-500">
+                                Nenhum pedido recente
+                            </div>
+                        {/each}
+                    </div>
+                {/if}
             </div>
           </div>
+
         </div>
 
         <!-- Quick Actions -->
@@ -218,6 +340,111 @@
             </a>
           </div>
         </div>
+
+        {#if selectedOrder}
+        <div class="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm flex items-center justify-center p-4"
+            on:click|self={() => selectedOrder = null}>
+          <div class="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="p-6 space-y-6">
+              <!-- Cabeçalho -->
+              <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold">Pedido #{selectedOrder.id}</h2>
+                <button on:click={() => selectedOrder = null} class="text-gray-500 hover:text-gray-700">
+                  <i class="fas fa-times text-xl"></i>
+                </button>
+              </div>
+
+              <!-- Detalhes do Pedido -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h3 class="font-medium mb-2">Endereço de Entrega</h3>
+                  <p class="text-gray-600">
+                    {selectedOrder.shipping_address.street}, {selectedOrder.shipping_address.number}<br>
+                    {selectedOrder.shipping_address.city} - {selectedOrder.shipping_address.state}
+                  </p>
+                </div>
+                
+                <div>
+                  <h3 class="font-medium mb-2">Valor Total</h3>
+                  <p class="text-xl font-bold text-green-600">
+                    {formatarMoeda(selectedOrder.total_amount)}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Formulário de Atualização -->
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium mb-2">Status Atual</label>
+                  <select 
+                    bind:value={newStatus}
+                    class="w-full p-3 border rounded-lg"
+                    disabled={updatingStatus}
+                  >
+                    <option value="RECEBIDO">Recebido</option>
+                    <option value="EM_PREPARO">Em preparo</option>
+                    <option value="ENVIADO">Enviado</option>
+                    <option value="ENTREGUE">Entregue</option>
+                    <option value="CANCELADO">Cancelado</option>
+                  </select>
+
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium mb-2">Observações</label>
+                  <textarea
+                    bind:value={statusNotes}
+                    class="w-full p-3 border rounded-lg"
+                    placeholder="Adicione notas sobre a atualização..."
+                    rows="3"
+                    disabled={updatingStatus}
+                  ></textarea>
+                </div>
+
+                {#if statusError}
+                  <div class="text-red-500 p-3 bg-red-50 rounded-lg">{statusError}</div>
+                {/if}
+
+                <div class="flex gap-4 justify-end">
+                  <button 
+                    on:click={() => selectedOrder = null}
+                    class="px-6 py-2 text-gray-600 hover:bg-gray-50 rounded-lg"
+                    disabled={updatingStatus}
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    on:click={updateOrderStatus}
+                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    disabled={updatingStatus}
+                  >
+                    {updatingStatus ? 'Atualizando...' : 'Salvar Alterações'}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Histórico de Status -->
+              <div class="border-t pt-4">
+                <h3 class="font-medium mb-4">Histórico de Atualizações</h3>
+                <div class="space-y-3">
+                  {#each statusHistory as history}
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <p class="font-medium">{history.status}</p>
+                        <p class="text-sm text-gray-600">{new Date(history.timestamp).toLocaleDateString()}</p>
+                      </div>
+                      <p class="text-sm text-gray-600 max-w-[200px] truncate">{history.notes}</p>
+                    </div>
+                  {:else}
+                    <p class="text-gray-500 text-center">Nenhum histórico disponível</p>
+                  {/each}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {/if}
+
       </main>
     </div>
   </div>
