@@ -44,3 +44,4 @@ You can preview the production build with `npm run preview`.
 - [ ] Improve session expired;
 - [ ] Add store_id data to send to API (front -> backend);
 - [ ] Fix Search input and filters on store page;
+- [ ] Finalizar fluxo de pagamento/inserção de dados na API/redirecionamento

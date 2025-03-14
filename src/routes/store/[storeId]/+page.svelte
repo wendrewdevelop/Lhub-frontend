@@ -2,19 +2,17 @@
     import { writable, derived } from 'svelte/store';
     import { onMount } from 'svelte';
     import { browser } from '$app/environment';
-    import { page } from '$app/state';
     import { invalidate, goto } from '$app/navigation';
     import { slide, fade } from 'svelte/transition';
     import { v4 as uuidv4 } from "uuid";
+    // Importações do carrinho
+    import { cart, addToCart, updateQuantity, removeItem } from '$lib/cart';
 
-
-    export let data; // Recebe os dados do servidor
+    export let data;
     let uuid = "";
-    // Estado inicial
     let loading = true;
     let error = null;
     let storeExists = true;
-    // Stores
     const produtos = writable([]);
     export const selectedProduct = writable(null);
     const filters = writable({
@@ -24,58 +22,13 @@
         minPrice: 0,
         maxPrice: 1000
     });
-    const cart = writable({
-        items: [],
-        subtotal: 0,
-        taxa: 3.5,
-        total: 0,
-        open: false
-    });
+    
     const formatarMoeda = (valor) => {
         return new Intl.NumberFormat('pt-BR', {
             style: 'currency',
             currency: 'BRL'
         }).format(valor);
     };
-    const addToCart = (item) => {
-        cart.update(prev => {
-            const existing = prev.items.find(i => i.id === item.id);
-            if (existing) {
-                existing.quantity++;
-            } else {
-                prev.items.push({ ...item, quantity: 1 });
-            }
-            return calculateTotals(prev);
-        });
-    };
-    const calculateTotals = (state) => {
-        state.subtotal = state.items.reduce((sum, item) => sum + (item.preco * item.quantity), 0);
-        state.total = state.subtotal + state.taxa;
-        return state;
-    };
-    const updateQuantity = (itemId, delta) => {
-        cart.update(prev => {
-            const item = prev.items.find(i => i.id === itemId);
-            if (item) {
-                item.quantity += delta;
-                if (item.quantity < 1) {
-                    prev.items = prev.items.filter(i => i.id !== itemId);
-                }
-            }
-            return calculateTotals(prev);
-        });
-    };
-    const removeItem = (itemId) => {
-        cart.update(prev => {
-            prev.items = prev.items.filter(i => i.id !== itemId);
-            return calculateTotals(prev);
-        });
-    };
-
-    // Atualize a função calculateTotals para ser reativa
-    cart.subscribe(state => {
-        calculateTotals(state);
-    });
 
     // Store derivada para filtragem
     const produtosFiltrados = derived(
@@ -101,7 +54,6 @@
     const loadProducts = async () => {
         if (browser) {
             try {
-                if (!browser) return;
                 const regex = /[0-9a-fA-F-]{36}/;
                 const store_id = window.location.pathname.match(regex);
                 if (!store_id) {
@@ -139,14 +91,13 @@
 
     onMount(async () => {
         await loadProducts();
-        // iniciarCheckout();
         invalidate('load:products');
     });
 
     const iniciarCheckout = () => {
         const regex = /[0-9a-fA-F-]{36}/;
         const store_id = window.location.pathname.match(regex);
-        const checkout_id = uuidv4(); // Gera UUID único
+        const checkout_id = uuidv4();
         goto(`/checkout/${store_id}/${checkout_id}`);
     };
 </script>
@@ -330,7 +281,7 @@
                         </p>
                         <button
                             on:click={() => {
-                                cart.addItem($selectedProduct);
+                                addToCart($selectedProduct); // Corrigido de cart.addItem para addToCart
                                 $selectedProduct = null;
                             }}
                             class="bg-cyan-900 text-white px-6 py-3 rounded-lg hover:bg-cyan-800 transition-colors"
