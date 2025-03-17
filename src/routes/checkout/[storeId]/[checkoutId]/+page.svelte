@@ -14,6 +14,7 @@
     const store_id = page.params.storeId;
     console.log(store_id);
     const checkout_id = page.params.checkoutId;
+    console.log(checkout_id);
   
     let stripe;
     let elements;
@@ -62,7 +63,7 @@
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    amount: $cart.total * 100, // Valor em centavos
+                    amount: Math.round($cart.total * 100), // Já converte para centavos
                     currency: 'brl',
                     description: 'Pagamento de pedido'
                 })
@@ -86,6 +87,7 @@
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 },
                 body: JSON.stringify({
+                    checkout_id: checkout_id,  // Adicione esta linha
                     items: $cart.items.map(item => ({
                         product_id: item.id,
                         quantity: item.quantity,
@@ -93,13 +95,12 @@
                     })),
                     shipping_address: shippingAddress,
                     payment_method: {
-                        provider: 'stripe',  // Adicione esta linha
-                        payment_intent_id: paymentIntent.id,  // Mude o nome da chave
-                        method_type: paymentIntent.payment_method_types[0],  // Tipo real do método
+                        provider: 'stripe',
+                        payment_intent_id: paymentIntent.id,
+                        method_type: paymentIntent.payment_method_types[0],
                         last4: paymentIntent.charges?.data?.[0]?.payment_method_details?.card?.last4 || '****'
                     }
                 })
-                
             });
   
             if (!orderResponse.ok) {
@@ -126,6 +127,34 @@
           {errorMessage}
       </div>
   {/if}
+
+    <div class="mb-6 border-b pb-4">
+        <h3 class="text-lg font-semibold mb-2">Resumo do Pedido</h3>
+        
+        <div class="space-y-2">
+            {#each $cart.items as item}
+                <div class="flex justify-between">
+                    <span>{item.quantity}x {item.nome}</span>
+                    <span>R$ {(item.preco * item.quantity).toFixed(2)}</span>
+                </div>
+            {/each}
+        </div>
+
+        <div class="mt-4 pt-2 border-t">
+            <div class="flex justify-between mb-1">
+                <span>Subtotal:</span>
+                <span>R$ {$cart.subtotal.toFixed(2)}</span>
+            </div>
+            <div class="flex justify-between mb-1">
+                <span>Taxa de entrega:</span>
+                <span>R$ {$cart.taxa.toFixed(2)}</span>
+            </div>
+            <div class="flex justify-between font-bold">
+                <span>Total:</span>
+                <span>R$ {$cart.total.toFixed(2)}</span>
+            </div>
+        </div>
+    </div>
 
   <div class="mb-4">
     <label class="block text-sm font-medium text-gray-700 mb-2">Endereço Completo</label>
@@ -171,19 +200,19 @@
     </div>
   </div>
 
-  <div id="card-element" class="mb-4 p-3 border rounded"></div>
+    <div id="card-element" class="mb-4 p-3 border rounded"></div>
 
-  <button
-      on:click={handleSubmit}
-      disabled={loading}
-      class="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:bg-gray-400"
-  >
-      {#if loading}
-          <i class="fas fa-spinner fa-spin mr-2"></i> Processando...
-      {:else}
-          Confirmar Pagamento R$ 10,00
-      {/if}
-  </button>
+    <button
+        on:click={handleSubmit}
+        disabled={loading}
+        class="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:bg-gray-400"
+    >
+        {#if loading}
+            <i class="fas fa-spinner fa-spin mr-2"></i> Processando...
+        {:else}
+            Confirmar Pagamento R$ {$cart.total.toFixed(2)}
+        {/if}
+    </button>
 </div>
 
 <style>
@@ -198,4 +227,9 @@
   .StripeElement--focus { box-shadow: 0 1px 3px 0 #cfd7df; }
   .StripeElement--invalid { border-color: #fa755a; }
   .StripeElement--webkit-autofill { background-color: #fefde5 !important; }
+
+    .text-currency {
+        font-family: 'Arial', sans-serif;
+        letter-spacing: 0.5px;
+    }
 </style>

@@ -10,7 +10,7 @@ export const cart = writable({
 
 export const calculateTotals = (state) => {
     state.subtotal = state.items.reduce((sum, item) => sum + (item.preco * item.quantity), 0);
-    state.total = state.subtotal + state.taxa;
+    state.total = Number((state.subtotal + state.taxa).toFixed(2));
     return state;
 };
 
